@@ -21,34 +21,40 @@ impl fmt::Display for Command {
 struct State {
     selected: usize,
     commands: Vec<Command>,
+    filtered_commands: Vec<Command>,
     search_filter: String,
 }
 
 impl State {
-    fn filtered_commands(&self) -> Vec<&Command> {
+    fn update_filtered_commands(&mut self) {
         if self.search_filter.is_empty() {
-            self.commands.iter().collect()
+            self.filtered_commands = self.commands.to_vec();
         } else {
-            self.commands
+            self.filtered_commands = self
+                .commands
                 .iter()
-                .filter(|command| {
+                .filter(|&command| {
                     command.title.to_lowercase().contains(&self.search_filter)
                         || command
                             .command_text
                             .to_lowercase()
                             .contains(&self.search_filter)
                 })
-                .collect()
+                .cloned()
+                .collect();
+            if self.selected > self.filtered_commands.len() {
+                self.selected = self.filtered_commands.len() - 1;
+            }
         }
     }
 
     fn select_down(&mut self) {
-        self.selected = (self.selected + 1) % self.filtered_commands().len();
+        self.selected = (self.selected + 1) % self.filtered_commands.len();
     }
 
     fn select_up(&mut self) {
         if self.selected == 0 {
-            self.selected = self.filtered_commands().len() - 1;
+            self.selected = self.filtered_commands.len() - 1;
             return;
         }
         self.selected -= 1;
@@ -60,7 +66,8 @@ impl State {
                 title: raw_command.0,
                 command_text: raw_command.1,
             })
-        })
+        });
+        self.update_filtered_commands();
     }
 }
 
@@ -84,7 +91,7 @@ impl ZellijPlugin for State {
             }
 
             Event::Key(Key::Char('\n')) => {
-                if let Some(command) = self.filtered_commands().get(self.selected) {
+                if let Some(command) = self.filtered_commands.get(self.selected) {
                     let split_command: Vec<String> = command
                         .command_text
                         .split(' ')
@@ -102,6 +109,7 @@ impl ZellijPlugin for State {
 
             Event::Key(Key::Backspace) => {
                 self.search_filter.pop();
+                self.update_filtered_commands();
                 should_render = true;
             }
 
@@ -109,6 +117,7 @@ impl ZellijPlugin for State {
                 if c.is_ascii_alphabetic() || c.is_ascii_digit() || c.is_whitespace() =>
             {
                 self.search_filter.push(c);
+                self.update_filtered_commands();
                 should_render = true;
             }
 
@@ -131,40 +140,31 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, _rows: usize, _cols: usize) {
-        let spacer = ((_rows - self.filtered_commands().len() - 2) as f32 / 2.0).ceil();
-        let width = _cols / 2;
-        print!(
-            "{:^width$}{:^width$}",
-            "Title".blue().bold(),
-            "Command".blue().bold()
-        );
-        print!("{}", "\n".repeat(spacer as usize));
-        self.filtered_commands()
+        let table = self
+            .filtered_commands
             .iter()
             .enumerate()
-            .for_each(|(idx, command)| {
+            .map(|(idx, command)| {
                 if idx == self.selected {
-                    println!(
-                        "{:^width$}-{:^width$}",
-                        command.title.to_string().red().bold(),
-                        command.command_text.to_string().red().bold()
-                    )
+                    vec![
+                        Text::new(command.title.to_string().red().to_string()).selected(),
+                        Text::new(command.command_text.to_string().red().to_string()).selected(),
+                    ]
                 } else {
-                    println!("{:^width$}-{:^width$}", command.title, command.command_text)
+                    vec![
+                        Text::new(command.title.to_string()),
+                        Text::new(command.command_text.to_string()),
+                    ]
                 }
-            });
-        print!(
-            "{}",
-            "\n".repeat(if self.filtered_commands().len() % 2 == 0 {
-                (spacer + 1.0) as usize
-            } else {
-                spacer as usize
             })
-        );
-        print!(
-            "{}{}",
-            ">  Filter: ".blue().bold(),
-            self.search_filter.cyan().italic()
-        );
+            .fold(Table::new().add_row(vec!["Title", "Command"]), |acc, x| {
+                acc.add_styled_row(x)
+            })
+            .add_styled_row(vec![Text::new(format!(
+                "{}{}",
+                ">  Filter: ".blue().bold(),
+                self.search_filter.cyan().italic()
+            ))]);
+        print_table_with_coordinates(table, _cols / 3, 0, Some(_cols), Some(_rows));
     }
 }
