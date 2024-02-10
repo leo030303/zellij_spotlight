@@ -140,10 +140,18 @@ impl ZellijPlugin for State {
     }
 
     fn render(&mut self, _rows: usize, _cols: usize) {
+        let half: i32 = (_rows as i32 - 2) / 2;
+        let mut offset = 0;
         let table = self
             .filtered_commands
             .iter()
             .enumerate()
+            .filter(|(idx, _command)| {
+                if (self.selected as i32) <= half {
+                    offset = half - (self.selected as i32);
+                };
+                (*idx as i32 - self.selected as i32).abs() < half + offset
+            })
             .map(|(idx, command)| {
                 if idx == self.selected {
                     vec![
