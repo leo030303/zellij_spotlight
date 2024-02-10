@@ -21,16 +21,21 @@ impl fmt::Display for Command {
 struct State {
     selected: usize,
     commands: Vec<Command>,
-    filtered_commands: Vec<Command>,
     search_filter: String,
 }
 
 impl State {
-    fn update_filtered_commands(&mut self) {
+    fn update_selected(&mut self) {
+        if self.selected >= self.filtered_commands().len() {
+            self.selected = self.filtered_commands().len() - 1;
+        }
+    }
+
+    fn filtered_commands(&self) -> Vec<&Command> {
         if self.search_filter.is_empty() {
-            self.filtered_commands = self.commands.to_vec();
+            return self.commands.iter().collect();
         } else {
-            self.filtered_commands = self
+            return self
                 .commands
                 .iter()
                 .filter(|&command| {
@@ -40,21 +45,17 @@ impl State {
                             .to_lowercase()
                             .contains(&self.search_filter)
                 })
-                .cloned()
                 .collect();
-            if self.selected > self.filtered_commands.len() {
-                self.selected = self.filtered_commands.len() - 1;
-            }
         }
     }
 
     fn select_down(&mut self) {
-        self.selected = (self.selected + 1) % self.filtered_commands.len();
+        self.selected = (self.selected + 1) % self.filtered_commands().len();
     }
 
     fn select_up(&mut self) {
         if self.selected == 0 {
-            self.selected = self.filtered_commands.len() - 1;
+            self.selected = self.filtered_commands().len() - 1;
             return;
         }
         self.selected -= 1;
@@ -67,7 +68,6 @@ impl State {
                 command_text: raw_command.1,
             })
         });
-        self.update_filtered_commands();
     }
 }
 
@@ -91,7 +91,7 @@ impl ZellijPlugin for State {
             }
 
             Event::Key(Key::Char('\n')) => {
-                if let Some(command) = self.filtered_commands.get(self.selected) {
+                if let Some(command) = self.filtered_commands().get(self.selected) {
                     let split_command: Vec<String> = command
                         .command_text
                         .split(' ')
@@ -109,7 +109,7 @@ impl ZellijPlugin for State {
 
             Event::Key(Key::Backspace) => {
                 self.search_filter.pop();
-                self.update_filtered_commands();
+                self.update_selected();
                 should_render = true;
             }
 
@@ -117,7 +117,7 @@ impl ZellijPlugin for State {
                 if c.is_ascii_alphabetic() || c.is_ascii_digit() || c.is_whitespace() =>
             {
                 self.search_filter.push(c);
-                self.update_filtered_commands();
+                self.update_selected();
                 should_render = true;
             }
 
@@ -143,7 +143,7 @@ impl ZellijPlugin for State {
         let half: i32 = (_rows as i32 - 2) / 2;
         let mut offset = 0;
         let table = self
-            .filtered_commands
+            .filtered_commands()
             .iter()
             .enumerate()
             .filter(|(idx, _command)| {
