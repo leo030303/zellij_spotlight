@@ -1,3 +1,4 @@
+use arboard::Clipboard;
 use core::fmt;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
@@ -92,17 +93,11 @@ impl ZellijPlugin for State {
 
             Event::Key(Key::Char('\n')) => {
                 if let Some(command) = self.filtered_commands().get(self.selected) {
-                    let split_command: Vec<String> = command
-                        .command_text
-                        .split(' ')
-                        .map(|s| s.to_string())
-                        .collect();
+                    let mut clipboard = Clipboard::new().expect("Error getting clipboard object");
+                    clipboard
+                        .set_text(command.command_text)
+                        .expect("Error setting clipboard text");
                     hide_self();
-                    open_command_pane(CommandToRun {
-                        path: PathBuf::from(&split_command[0]),
-                        args: split_command[1..].to_vec(),
-                        cwd: None,
-                    });
                 }
                 self.search_filter = String::from("");
             }
