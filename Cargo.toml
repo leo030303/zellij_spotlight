@@ -6,7 +6,6 @@ authors = ["Leo Ring <leoring03@gmail.com>"]
 
 [dependencies]
 ansi_term = "0.12.1"
-arboard = "3.4.0"
 chrono = "0.4.26"
 owo-colors = "3.5.0"
 serde = "1.0.175"

@@ -1,8 +1,7 @@
-use arboard::Clipboard;
 use core::fmt;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::collections::BTreeMap;
 
 use zellij_tile::prelude::*;
 
@@ -93,10 +92,7 @@ impl ZellijPlugin for State {
 
             Event::Key(Key::Char('\n')) => {
                 if let Some(command) = self.filtered_commands().get(self.selected) {
-                    let mut clipboard = Clipboard::new().expect("Error getting clipboard object");
-                    clipboard
-                        .set_text(command.command_text)
-                        .expect("Error setting clipboard text");
+                    run_command(&["wl-copy", &command.command_text], BTreeMap::new());
                     hide_self();
                 }
                 self.search_filter = String::from("");
